@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>销售转化看板 — Sales Conversion Dashboard</title>
+<meta name="description" content="销售转化漏斗与渠道效果看板 · 演示数据">
+<style>
+/* ============================================================
+  设计系统：纯白极简 / 瑞士排版 / 无依赖
+============================================================ */
+:root{
+  --bg:#fff; --ink:#111; --ink-60:#666; --ink-40:#999;
+  --line:#e8e8e8; --line-strong:#d8d8d8;
+  --accent:#111; --up:#1a7f4e; --down:#c0392b;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+  --sans:"Inter","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--mono)}
+.wrap{max-width:1240px;margin:0 auto;padding:0 clamp(20px,4vw,48px)}
+a{color:inherit;text-decoration:none}
+
+/* —— 顶栏 —— */
+.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand b{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.brand span{font-size:11px;color:var(--ink-40);letter-spacing:.14em;text-transform:uppercase}
+.rng{display:flex;border:1px solid var(--line-strong)}
+.rng button{border:0;background:transparent;padding:8px 16px;font-size:12px;
+  font-family:var(--mono);color:var(--ink-60);cursor:pointer;transition:all .25s var(--ease)}
+.rng button+button{border-left:1px solid var(--line-strong)}
+.rng button.on{background:#111;color:#fff}
+.rng button:not(.on):hover{color:#111}
+
+/* —— 页头 —— */
+.head{padding:clamp(48px,7vw,84px) 0 clamp(24px,3vw,40px)}
+.head h1{font-size:clamp(28px,4vw,48px);font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.head p{margin-top:12px;color:var(--ink-60);max-width:44em}
+.head .tag{display:inline-block;margin-top:14px;padding:4px 10px;font-size:11px;
+  font-family:var(--mono);letter-spacing:.12em;color:var(--ink-40);
+  border:1px solid var(--line);border-radius:999px}
+
+/* —— KPI —— */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line)}
+.kpi{background:#fff;padding:clamp(16px,2vw,24px)}
+.kpi .k{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-40)}
+.kpi .v{margin-top:10px;font-size:clamp(24px,3vw,36px);font-weight:700;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .d{margin-top:6px;font-size:12px;font-family:var(--mono);color:var(--ink-40)}
+.kpi .d b{font-weight:600}
+.kpi .d .up{color:var(--up)} .kpi .d .down{color:var(--down)}
+
+/* —— 区块 —— */
+.sec{margin-top:clamp(40px,6vw,72px)}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;
+  border-bottom:1px solid var(--ink);padding-bottom:12px;margin-bottom:0}
+.sec-head h2{font-size:16px;font-weight:700;letter-spacing:.02em}
+.sec-head .mono{font-size:11px;color:var(--ink-40);letter-spacing:.1em}
+.chart-box{border:1px solid var(--line);border-top:0;padding:clamp(16px,2.4vw,28px)}
+canvas{display:block;width:100%}
+.legend{display:flex;gap:20px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--ink-60)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:7px;vertical-align:-1px}
+
+/* —— 两列 —— */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:clamp(20px,3vw,32px)}
+.two .chart-box{border-top:1px solid var(--line);margin-top:16px}
+
+/* —— 表格 —— */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;
+  font-variant-numeric:tabular-nums}
+th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600}
+td.num,th.num{text-align:right}
+tbody tr{transition:background .2s var(--ease)}
+tbody tr:hover{background:#fafafa}
+.bar-cell{position:relative}
+.bar-cell .bg{position:absolute;inset:6px 0;background:#f0f0f0;z-index:0}
+.bar-cell .bg i{position:absolute;left:0;top:0;bottom:0;background:#111;display:block}
+.bar-cell span{position:relative;z-index:1}
+
+/* —— 页脚 —— */
+footer{margin-top:clamp(56px,8vw,96px);border-top:1px solid var(--line);
+  padding:26px 0 48px;display:flex;justify-content:space-between;gap:16px;
+  font-size:12px;color:var(--ink-40);flex-wrap:wrap}
+
+/* —— 入场动效 —— */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+
+/* —— 响应式 —— */
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .two{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .kpis{grid-template-columns:1fr}
+  .brand span{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-in">
+    <div class="brand"><b>销售转化看板</b><span>Sales Dashboard</span></div>
+    <div class="rng" id="rng">
+      <button data-days="7">近 7 天</button>
+      <button data-days="30" class="on">近 30 天</button>
+      <button data-days="90">近 90 天</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="head reveal">
+    <h1>转化，一条看得见的路径</h1>
+    <p>从访问到成交的完整漏斗：每一步的转化率、各渠道的表现对比与趋势变化。</p>
+    <span class="tag">DEMO DATA · 演示数据，可在 <b>DATA</b> 对象中接入真实数据</span>
+  </section>
+
+  <section class="kpis reveal" id="kpis"></section>
+
+  <section class="sec reveal">
+    <div class="sec-head"><h2>转化漏斗</h2><span class="mono" id="funnel-sub"></span></div>
+    <div class="chart-box"><canvas id="funnel" height="300"></canvas></div>
+  </section>
+
+  <section class="sec reveal">
+    <div class="sec-head"><h2>趋势 · 访客与转化率</h2><span class="mono" id="trend-sub"></span></div>
+    <div class="chart-box">
+      <canvas id="trend" height="320"></canvas>
+      <div class="legend">
+        <span><i style="background:#111"></i>访客数（左轴）</span>
+        <span><i style="background:#c0392b"></i>支付转化率（右轴）</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec two">
+    <div class="reveal">
+      <div class="sec-head"><h2>渠道对比 · 成交量</h2><span class="mono">CHANNELS</span></div>
+      <div class="chart-box"><canvas id="chan" height="260"></canvas></div>
+    </div>
+    <div class="reveal">
+      <div class="sec-head"><h2>渠道明细</h2><span class="mono">DETAIL</span></div>
+      <div class="chart-box" style="overflow-x:auto">
+        <table id="tbl">
+          <thead><tr>
+            <th>渠道</th><th class="num">访客</th><th class="num">线索</th>
+            <th class="num">成交</th><th class="num">转化率</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%">
+    <span>© 2026 Sales Conversion Dashboard</span>
+    <span class="mono">VANILLA JS · CANVAS · ZERO DEPENDENCY</span>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+  ① DATA — 演示数据源（接入真实数据时替换此对象即可）
+  channels: 各渠道 当期 访客/线索/成交 与上一期数据（用于环比）
+============================================================ */
+const DATA = {
+  channels: [
+    { name:"自然搜索", visitors:18420, leads:2260, deals:312, prevDeals:286 },
+    { name:"付费广告", visitors:24870, leads:1980, deals:268, prevDeals:301 },
+    { name:"社交媒体", visitors:15230, leads:1640, deals:204, prevDeals:177 },
+    { name:"邮件营销", visitors: 6840, leads: 920, deals:148, prevDeals:139 },
+    { name:"转介绍",   visitors: 3260, leads: 640, deals:121, prevDeals:104 },
+    { name:"线下活动", visitors: 1980, leads: 410, deals: 87, prevDeals: 92 },
+  ],
+};
+
+/* 确定性伪随机（同参数同图形，刷新不变） */
+function seeded(seed){
+  let s = seed >>> 0;
+  return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+}
+
+/* 按天数生成每日 访客 / 成交 序列（围绕渠道总量做合理波动） */
+function makeSeries(days){
+  const rnd = seeded(days * 7919);
+  const totV = DATA.channels.reduce((a,c)=>a+c.visitors,0);
+  const totD = DATA.channels.reduce((a,c)=>a+c.deals,0);
+  const vPerDay = totV / days, dPerDay = totD / days;
+  const vis = [], conv = [];
+  for(let i=0;i<days;i++){
+    const wk = 1 + .18 * Math.sin(i / days * Math.PI * 2 * (days/7>1?days/7:1));
+    const v = Math.max(60, Math.round(vPerDay * wk * (.82 + rnd()*.36)));
+    vis.push(v);
+    conv.push(Math.max(.8, +( (totD/totV*100) * (.85 + rnd()*.3) ).toFixed(2)));
+  }
+  return { vis, conv };
+}
+
+/* ============================================================
+  ② 状态与格式化
+============================================================ */
+let DAYS = 30;
+const fmt  = n => n.toLocaleString("zh-CN");
+const pct  = n => n.toFixed(1) + "%";
+const sign = n => (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
+const $    = s => document.querySelector(s);
+
+/* 汇总指标 */
+function metrics(){
+  const c = DATA.channels;
+  const sum = k => c.reduce((a,x)=>a+x[k],0);
+  const visitors = sum("visitors"), leads = sum("leads"), deals = sum("deals");
+  const prevDeals = sum("prevDeals");
+  const prevVisitors = Math.round(visitors * .93);       // 演示：上期约 -7%
+  return {
+    visitors, leads, deals,
+    crVisitor: deals/visitors*100,
+    crLead:    deals/leads*100,
+    dVisitors: (visitors-prevVisitors)/prevVisitors*100,
+    dDeals:    (deals-prevDeals)/prevDeals*100,
+  };
+}
+
+/* ============================================================
+  ③ KPI 卡
+============================================================ */
+function renderKpis(){
+  const m = metrics();
+  const cards = [
+    { k:"访客 Visitors",  v:fmt(m.visitors), d:m.dVisitors },
+    { k:"线索 Leads",     v:fmt(m.leads),   d:null, txt:"线索率 " + pct(m.leads/m.visitors*100) },
+    { k:"成交 Deals",     v:fmt(m.deals),   d:m.dDeals },
+    { k:"访客→成交",      v:pct(m.crVisitor), d:null, txt:"线索→成交 " + pct(m.crLead) },
+  ];
+  $("#kpis").innerHTML = cards.map(c=>`
+    <div class="kpi">
+      <div class="k">${c.k}</div>
+      <div class="v">${c.v}</div>
+      <div class="d">${c.d !== null
+        ? `环比 <b class="${c.d>=0?"up":"down"}">${sign(c.d)}</b> vs 上期`
+        : c.txt}</div>
+    </div>`).join("");
+}
+
+/* ============================================================
+  ④ Canvas 基础（高分屏适配 + 统一文本样式）
+============================================================ */
+function setupCanvas(id, cssH){
+  const cv = document.getElementById(id);
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const w = cv.parentElement.getBoundingClientRect().width - 0;
+  cv.style.height = cssH + "px";
+  cv.width = w * dpr; cv.height = cssH * dpr;
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { cv, ctx, w, h: cssH };
+}
+const INK="#111", INK40="#999", LINE="#e8e8e8";
+function txt(ctx,s,x,y,{size=11,color=INK40,align="left",weight=400,mono=true}={}){
+  ctx.font = `${weight} ${size}px ${mono?'ui-monospace,Consolas,monospace':'Inter,"Noto Sans SC",sans-serif'}`;
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = "middle";
+  ctx.fillText(s,x,y);
+}
+
+/* —— 漏斗图 —— */
+function drawFunnel(){
+  const m = metrics();
+  const stages = [
+    { label:"访问",     v:m.visitors },
+    { label:"线索",     v:m.leads },
+    { label:"商机",     v:Math.round(m.leads*.58) },
+    { label:"成交",     v:m.deals },
+  ];
+  const { ctx, w, h } = setupCanvas("funnel", 300);
+  const rowH = h / stages.length, barMax = w - 190;
+  const max = stages[0].v;
+  ctx.clearRect(0,0,w,h);
+  stages.forEach((s,i)=>{
+    const y = i*rowH + rowH/2;
+    const bw = Math.max(30, barMax * (s.v / max));
+    const bh = Math.min(34, rowH*.52);
+    ctx.fillStyle = i === stages.length-1 ? "#111" : `rgba(17,17,17,${1 - i*.22})`;
+    ctx.fillRect(118, y-bh/2, bw, bh);
+    txt(ctx, s.label, 108, y, {size:12, color:"#111", align:"right", weight:600, mono:false});
+    txt(ctx, fmt(s.v), 118+bw+12, y, {size:12, color:"#111", weight:600});
+    if(i>0){
+      const rate = s.v / stages[i-1].v * 100;
+      txt(ctx, "← " + pct(rate), w-16, y, {size:11, color:rate<40?"#c0392b":INK40, align:"right"});
+    }
+  });
+  $("#funnel-sub").textContent = "访问 → 成交 整体 " + pct(m.crVisitor);
+}
+
+/* —— 双轴趋势图 —— */
+function drawTrend(){
+  const { vis, conv } = makeSeries(DAYS);
+  const { ctx, w, h } = setupCanvas("trend", 320);
+  ctx.clearRect(0,0,w,h);
+  const padL=54, padR=54, padT=18, padB=30;
+  const iw = w-padL-padR, ih = h-padT-padB;
+  const vMax = Math.max(...vis)*1.15, cMax = Math.max(...conv)*1.3;
+
+  /* 横网格 + 左轴刻度 */
+  ctx.strokeStyle = LINE; ctx.lineWidth = 1;
+  for(let i=0;i<=4;i++){
+    const y = padT + ih*i/4;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke();
+    txt(ctx, fmt(Math.round(vMax*(1-i/4))), padL-8, y, {align:"right"});
+    txt(ctx, (cMax*(1-i/4)).toFixed(1)+"%", w-padR+8, y, {align:"left", color:"#c0392b"});
+  }
+  /* x 轴日期 */
+  const step = Math.max(1, Math.round(DAYS/6));
+  for(let i=0;i<DAYS;i+=step){
+    const x = padL + iw*i/(DAYS-1);
+    txt(ctx, "D-"+(DAYS-1-i), x, h-10, {align:"center"});
+  }
+  /* 访客面积 */
+  ctx.beginPath();
+  vis.forEach((v,i)=>{
+    const x = padL + iw*i/(DAYS-1), y = padT + ih*(1 - v/vMax);
+    i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+  });
+  ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.lineTo(padL+iw, padT+ih); ctx.lineTo(padL, padT+ih); ctx.closePath();
+  ctx.fillStyle = "rgba(17,17,17,.05)"; ctx.fill();
+  /* 转化率虚线 */
+  ctx.setLineDash([5,4]);
+  ctx.beginPath();
+  conv.forEach((c,i)=>{
+    const x = padL + iw*i/(DAYS-1), y = padT + ih*(1 - c/cMax);
+    i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+  });
+  ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.setLineDash([]);
+  const avg = conv.reduce((a,b)=>a+b,0)/conv.length;
+  $("#trend-sub").textContent = "日均访客 " + fmt(Math.round(vis.reduce((a,b)=>a+b,0)/DAYS))
+    + " · 平均转化率 " + avg.toFixed(2) + "%";
+}
+
+/* —— 渠道柱状图 —— */
+function drawChannels(){
+  const { ctx, w, h } = setupCanvas("chan", 260);
+  ctx.clearRect(0,0,w,h);
+  const cs = [...DATA.channels].sort((a,b)=>b.deals-a.deals);
+  const padL=92, padR=56, ih=h/cs.length;
+  const max = cs[0].deals;
+  cs.forEach((c,i)=>{
+    const y = i*ih + ih/2;
+    const bw = Math.max(24,(w-padL-padR) * c.deals/max);
+    const bh = Math.min(26, ih*.5);
+    ctx.fillStyle = "rgba(17,17,17,"+(1-i*.13)+")";
+    ctx.fillRect(padL, y-bh/2, bw, bh);
+    txt(ctx, c.name, padL-10, y, {size:12, color:"#111", align:"right", weight:600, mono:false});
+    const d = (c.deals-c.prevDeals)/c.prevDeals*100;
+    txt(ctx, fmt(c.deals), padL+bw+10, y-7, {size:12, color:"#111", weight:600});
+    txt(ctx, sign(d), padL+bw+10, y+9, {size:10, color:d>=0?"#1a7f4e":"#c0392b"});
+  });
+}
+
+/* —— 明细表（成交列带条形底纹） —— */
+function renderTable(){
+  const cs = [...DATA.channels].sort((a,b)=>b.deals-a.deals);
+  const max = cs[0].deals;
+  $("#tbl tbody").innerHTML = cs.map(c=>{
+    const cr = c.deals/c.visitors*100;
+    return `<tr>
+      <td>${c.name}</td>
+      <td class="num">${fmt(c.visitors)}</td>
+      <td class="num">${fmt(c.leads)}</td>
+      <td class="num bar-cell"><div class="bg"><i style="width:${(c.deals/max*70).toFixed(0)}%"></i></div><span>${fmt(c.deals)}</span></td>
+      <td class="num">${cr.toFixed(2)}%</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ============================================================
+  ⑤ 渲染入口 + 时间范围切换
+============================================================ */
+function renderAll(){ renderKpis(); drawFunnel(); drawTrend(); drawChannels(); renderTable(); }
+renderAll();
+
+document.querySelectorAll("#rng button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    document.querySelectorAll("#rng button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    DAYS = +b.dataset.days;
+    drawFunnel(); drawTrend();
+  });
+});
+
+/* 窗口尺寸变化时重绘 */
+let rT;
+addEventListener("resize", ()=>{ clearTimeout(rT); rT = setTimeout(renderAll, 180); });
+
+/* 滚动入场动效 */
+const io = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+},{ threshold:.12 });
+document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
