@@ -1,37 +1,35 @@
-# 销售转化看板 · Sales Conversion Dashboard
+# 拓客台 · 销售转化看板
 
-一个零依赖的数据看板网站：KPI 卡、转化漏斗、双轴趋势图、渠道对比与明细表，全部用原生 Canvas 绘制，不需要任何图表库或付费 API。
+单文件销售工作台：线索录入、阶段分布、渠道对比、成交目标与优先跟进队列。零依赖，纯 HTML + CSS + 原生 JS。
 
 ## 本地查看
 
-双击 `index.html` 即可，或：
+双击 `index.html`，或：
 
 ```bash
 python -m http.server 8000
 ```
 
-## 修改数据
+## 功能
 
-打开 `index.html`，找到顶部 `DATA` 对象：
+- **核心指标**：全部线索 / 已成交 / 整体成交率 / 逾期待跟进
+- **渠道获客对比**：每个来源两根柱（线索数 vs 成交数）
+- **成交目标**：环形进度，点「设置目标」可改目标单数（1–9999）
+- **优先跟进**：按到期日排序的最早 4 条待跟进线索，逾期标红
+- **线索阶段分布**：待联系 / 沟通中 / 已报价 / 已成交 / 已流失
+- **渠道表现**：各来源成交率
+- **线索管理**：搜索、按阶段筛选、新增与编辑（弹窗表单）
+- **持久化**：修改保存在浏览器 localStorage，刷新不丢
 
-```js
-const DATA = {
-  channels: [
-    { name:"自然搜索", visitors:18420, leads:2260, deals:312, prevDeals:286 },
-    ...
-  ],
-};
-```
+## 改数据
 
-- `visitors` 访客数 · `leads` 线索数 · `deals` 成交数 · `prevDeals` 上期成交（用于环比）
-- 增删渠道会自动同步到柱状图、明细表与 KPI 汇总
-- 趋势图的每日波动由 `makeSeries()` 按渠道总量生成；接入真实日数据时，替换该函数返回 `{vis, conv}` 数组即可
+演示数据在 `index.html` 的 `seed` 数组（20 条），改这段即可；清空浏览器 localStorage 中的 `sales-workspace-v1` 可重置。
 
-所有数字均为演示数据，页面顶部有 `DEMO DATA` 标注，接入真实数据后可删除该标签。
+接入后端时，把 `render()` 读取的 `leads` 换成接口返回的数据，并在 `$('form').onsubmit` 里改为调用保存接口。
 
 ## 部署
 
-推到 GitHub 后由 GitHub Pages 托管：
+GitHub Pages，推送到 `main` 即自动构建：
 
 ```bash
 git add -A && git commit -m "update" && git push
